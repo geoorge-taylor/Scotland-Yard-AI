@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import uk.ac.bris.cs.scotlandyard.model.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class StateUtils {
 
@@ -35,7 +36,7 @@ public class StateUtils {
                 .map(LogEntry::location)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .findFirst().orElseThrow();
+                .findFirst().orElse(101);
     }
 
     public static int getActualMrXLocation(Board board) {
@@ -79,32 +80,47 @@ public class StateUtils {
         return new Player(mrXPiece, getTickets(board, mrXPiece), mrXCurrentLocation);
     }
 
-    // Compute a map of all nodes to how far away the nearest detective is away from them
-    public static Map<Integer, Integer> multiSourceBFS(Board board) {
+    public static Set<Integer> getDetectiveLocations(Board.GameState state) {
+        ImmutableSet<Piece.Detective> detectives = StateUtils.extractDetectivePieces(state);
+        return detectives.stream()
+                .map(p -> state.getDetectiveLocation(p).get())
+                .collect(Collectors.toSet());
+    }
+
+    public static Map<Integer, Integer> bfsAllDistances(int start, Board board) {
         var graph = board.getSetup().graph;
-
-        Map<Integer, Integer> nodeDistances = new HashMap<>();
+        Map<Integer, Integer> distances = new HashMap<>();
         Queue<Integer> queue = new ArrayDeque<>();
+        Set<Integer> visited = new HashSet<>();
 
-        for (Piece.Detective det : StateUtils.extractDetectivePieces(board)) {
-            board.getDetectiveLocation(det).ifPresent(location -> {
-                nodeDistances.put(location, 0);
-                queue.add(location);
-            });
-        }
+        queue.add(start);
+        visited.add(start);
+        distances.put(start, 0);
 
         while (!queue.isEmpty()) {
             int current = queue.poll();
-            int currentDist = nodeDistances.get(current);
+            int currentDist = distances.get(current);
 
             for (Integer neighbor : graph.adjacentNodes(current)) {
-                if (!nodeDistances.containsKey(neighbor)) {
-                    nodeDistances.put(neighbor, currentDist + 1);
-                    queue.add(neighbor);
-                }
+                if (visited.contains(neighbor)) continue;
+
+                visited.add(neighbor);
+                distances.put(neighbor, currentDist + 1);
+                queue.add(neighbor);
             }
         }
 
-        return nodeDistances;
+        return distances;
+    }
+
+    public static Map<Integer, Map<Integer, Integer>> buildDistanceMap(Board board) {
+        Map<Integer, Map<Integer, Integer>> distanceMap = new HashMap<>();
+        var graph = board.getSetup().graph;
+
+        for (Integer node : graph.nodes()) {
+            distanceMap.put(node, bfsAllDistances(node, board));
+        }
+
+        return distanceMap;
     }
 }

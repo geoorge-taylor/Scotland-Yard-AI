@@ -20,14 +20,15 @@ public class MyAi implements Ai {
 		Player mrX = StateUtils.extractMrXPlayer(board);
 		var detectives = StateUtils.extractDetectivePlayers(board);
 		Board.GameState state = new MyGameStateFactory().build(board.getSetup(), mrX, detectives);
-		Map<Integer, Integer> distanceMap = StateUtils.multiSourceBFS(board);
-		// Make a map of how far each detective is away from point of mrX
+
+		// Pre compute all BFS distances in the game
+		var distanceMap = StateUtils.buildDistanceMap(board);
 
 		Node root = new Node(state);
 		root.setMrXLocation(mrX.location());
 
-		StateEvaluator evaluator = new StateEvaluator();
-		SearchEngine search = new SearchEngine(evaluator, distanceMap);
+		StateEvaluator evaluator = new StateEvaluator(distanceMap);
+		SearchEngine search = new SearchEngine(evaluator);
 
 		return StateUtils.isMrXTurn(board)
 				? search.pickBestMrXMove(bestMove, root, timeoutPair)

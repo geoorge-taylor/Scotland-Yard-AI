@@ -5,7 +5,6 @@ import uk.ac.bris.cs.scotlandyard.model.Move;
 
 public class Node {
     private final Board.GameState state;
-    private int evaluation;
     private Move priorDetectiveMove;
     private Move priorMrXMove;
     private int mrXLocation;
@@ -21,7 +20,7 @@ public class Node {
     public int getMrXLocation() {return mrXLocation; }
 
     // SETTERS
-    public void setEvaluation(int newEvaluation) { evaluation = newEvaluation; }
+    //public void setEvaluation(int newEvaluation) { evaluation = newEvaluation; }
     public void setPriorDetectiveMove(Move newDetectiveMove) { priorDetectiveMove = newDetectiveMove; }
     public void setPriorMrXMove(Move newMrXMove) { priorMrXMove = newMrXMove; }
     public void setMrXLocation(int newLocation) { mrXLocation = newLocation; }

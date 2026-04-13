@@ -8,69 +8,53 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class StateEvaluator {
-    private final Map<CacheKey, Map<Integer, Integer>> bfsCache = new HashMap<>();
-    public static final int BFS_LIMIT = 10;
+    public static final int CLOSEST_MULTIPLIER = 100;
+    private Map<Integer, Map<Integer, Integer>> distanceMap;
 
+    public StateEvaluator(Map<Integer, Map<Integer, Integer>> distanceMap) {
+        this.distanceMap = distanceMap;
+    }
+
+    // TODO: make it take into account things like mobility and distance from prev position penalty
     public int evaluateNode(Node node) {
         Board.GameState state = node.getState();
         int mrXLocation = node.getMrXLocation();
-
-        ImmutableSet<Piece.Detective> detectives = StateUtils.extractDetectivePieces(state);
-        Set<Integer> detectiveLocations = detectives.stream()
-                .map(p -> state.getDetectiveLocation(p).get())
-                .collect(Collectors.toSet());
+        Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(state);
 
         // if mrX node, then score would be based on how FAR mrX is away from the detectives (i.e further away = better)
         // If detective node, then score would be based on how CLOSE detectives are away from mrX LAST KNOWN location
-        Map<Integer, Integer> detectiveDistances = getDistancesFromMrXToDetectives(state, detectiveLocations, mrXLocation);
-        return detectiveDistances.values().stream().mapToInt(Integer::intValue).sum();
+        Map<Integer, Integer> detectiveDistances = getDistancesToDetectives(mrXLocation, detectiveLocations);
+        int minDistance = detectiveDistances.values().stream().mapToInt(Integer::intValue).min().orElse(0);
+        int sumDistance = detectiveDistances.values().stream().mapToInt(Integer::intValue).sum();
+        return (minDistance * CLOSEST_MULTIPLIER) + sumDistance;
     }
 
-    private Map<Integer, Integer> getDistancesFromMrXToDetectives(Board.GameState state, Set<Integer> detectiveLocations, int mrXLocation) {
-        var graph = state.getSetup().graph;
-        CacheKey key = new CacheKey(mrXLocation, detectiveLocations);
-        if (bfsCache.containsKey(key)) return bfsCache.get(key);
+    public Map<Integer, Integer> getDistancesToDetectives(int mrXLocation, Set<Integer> detectiveLocations) {
+        Map<Integer, Integer> distancesFromMrX = distanceMap.get(mrXLocation);
+        Map<Integer, Integer> result = new HashMap<>();
 
-        int detectiveLocationsSize = detectiveLocations.size();
-        Map<Integer, Integer> detectiveDistances = new HashMap<>();
-        Map<Integer, Integer> nodeDistances = new HashMap<>();
-        Queue<Integer> queue = new ArrayDeque<>();
-        Set<Integer> visited = new HashSet<>();
-
-        queue.add(mrXLocation);
-        visited.add(mrXLocation);
-        nodeDistances.put(mrXLocation, 0);
-
-        if (detectiveLocations.contains(mrXLocation)) {
-            detectiveDistances.put(mrXLocation, 0);
-            if (detectiveDistances.size() == detectiveLocations.size())
-                return detectiveDistances; // all found
+        for (Integer detective : detectiveLocations) {
+            int dist = distancesFromMrX.getOrDefault(detective, Integer.MAX_VALUE);
+            result.put(detective, dist);
         }
 
-        // while there are still nodes left to visit and distances found to detectives is less than the total number of distances to find
-        while (!queue.isEmpty() && detectiveDistances.size() < detectiveLocationsSize) {
-            int current = queue.poll();
-            int currentDist = nodeDistances.get(current);
-            if (currentDist >= BFS_LIMIT) {
-                System.out.println("Hit BFS Limit");
-                continue;
-            }
+        return result;
+    }
 
-            for (Integer neighbor : graph.adjacentNodes(current)) {
-                if (visited.contains(neighbor)) continue;
+    public int heuristicMrX(int newMrXLocation, Set<Integer> detectiveLocations) {
+        Map<Integer, Integer> distances = distanceMap.get(newMrXLocation);
+        int closest = Integer.MAX_VALUE;
 
-                visited.add(neighbor);
-                nodeDistances.put(neighbor, currentDist + 1);
-                queue.add(neighbor);
-
-                // record if this neighbor and its distance to mrX since it contains a detective
-                if (detectiveLocations.contains(neighbor) && !detectiveDistances.containsKey(neighbor)) {
-                    detectiveDistances.put(neighbor, currentDist + 1);
-                }
-            }
+        for (Integer detective : detectiveLocations) {
+            int d = distances.getOrDefault(detective, Integer.MAX_VALUE);
+            if (d < closest) closest = d;
         }
 
-        bfsCache.put(key, detectiveDistances);
-        return detectiveDistances;
+        return closest; // higher = better
+    }
+
+    public int heuristicDetectives(int newDetectiveLocation, int mrXLocation) {
+        int dist = distanceMap.get(newDetectiveLocation).getOrDefault(mrXLocation, Integer.MAX_VALUE);
+        return -dist; // smaller distance = higher priority
     }
 }

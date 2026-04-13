@@ -4,24 +4,24 @@ import io.atlassian.fugue.Pair;
 import uk.ac.bris.cs.scotlandyard.model.Board;
 import uk.ac.bris.cs.scotlandyard.model.Move;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class SearchEngine {
     private static final int TREE_DEPTH = 5;
+    private static final int MOVE_LIMIT = 10;
     private final StateEvaluator evaluator;
-    private final Map<Integer, Integer> distanceMap;
 
-    public SearchEngine(StateEvaluator evaluator, Map<Integer, Integer> distanceMap) {
+    public SearchEngine(StateEvaluator evaluator) {
         this.evaluator = evaluator;
-        this.distanceMap = distanceMap;
     }
 
     private int minimax(Node node, int depth, int alpha, int beta) {
         if (depth == 0 || node.isTerminal()) {
-            int eval = evaluator.evaluateNode(node);
-            node.setEvaluation(eval);
-            return eval;
+            return evaluator.evaluateNode(node);
         }
 
         return StateUtils.isMrXTurn(node.getState())
@@ -29,18 +29,35 @@ public class SearchEngine {
                 : minimiseDetectives(node, depth, alpha, beta);
     }
 
+    private List<Move> sortTopMovesMrX(Node node) {
+        List<Move> moves = new ArrayList<>(node.getState().getAvailableMoves());
+        Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(node.getState());
+
+        moves.sort((a, b) -> {
+            int distA = evaluator.heuristicMrX(StateUtils.getMoveDestination(a), detectiveLocations);
+            int distB = evaluator.heuristicMrX(StateUtils.getMoveDestination(b), detectiveLocations);
+            return Integer.compare(distA, distB); // descending order
+        });
+
+        return moves.stream().limit(MOVE_LIMIT).toList();
+    }
+
+    private List<Move> sortTopMovesDetectives(Node node) {
+        List<Move> moves = new ArrayList<>(node.getState().getAvailableMoves());
+
+        moves.sort((a, b) -> {
+            int distA = evaluator.heuristicDetectives(StateUtils.getMoveDestination(a), node.getMrXLocation());
+            int distB = evaluator.heuristicDetectives(StateUtils.getMoveDestination(b), node.getMrXLocation());
+            return Integer.compare(distB, distA); // ascending order
+        });
+
+        return moves.stream().limit(MOVE_LIMIT).toList();
+    }
+
     private int maximiseMrX(Node node, int depth, int alpha, int beta) {
-        //List<Move> moves = new ArrayList<>(node.getState().getAvailableMoves());
-
-//        moves.sort((a, b) -> {
-//            int distA = distanceMap.getOrDefault(StateUtils.getMoveDestination(a), 0);
-//            int distB = distanceMap.getOrDefault(StateUtils.getMoveDestination(b), 0);
-//            return Integer.compare(distB, distA); // descending order
-//        });
-
         int maxEval = Integer.MIN_VALUE;
 
-        for (Move move : node.getState().getAvailableMoves()) {
+        for (Move move : sortTopMovesMrX(node)) {
             Board.GameState childState = node.getState().advance(move);
             Node child = new Node(childState);
             child.setPriorMrXMove(move);
@@ -50,17 +67,15 @@ public class SearchEngine {
             maxEval = Math.max(maxEval, eval);
             alpha = Math.max(alpha, eval);
             if (beta <= alpha) break;
-
         }
 
-        node.setEvaluation(maxEval);
         return maxEval;
     }
 
     private int minimiseDetectives(Node node, int depth, int alpha, int beta) {
         int minEval = Integer.MAX_VALUE;
 
-        for (Move move : node.getState().getAvailableMoves()) {
+        for (Move move : sortTopMovesDetectives(node)) {
             Board.GameState childState = node.getState().advance(move);
             Node child = new Node(childState);
             child.setPriorDetectiveMove(move);
@@ -72,7 +87,6 @@ public class SearchEngine {
             if (beta <= alpha) break;
         }
 
-        node.setEvaluation(minEval);
         return minEval;
     }
 
@@ -96,8 +110,6 @@ public class SearchEngine {
             alpha = Math.max(alpha, bestScore);
         }
 
-        System.out.println("The best score was: " + bestScore);
-        System.out.println("The best move is thus: " + bestMove);
         return bestMove;
     }
 }
