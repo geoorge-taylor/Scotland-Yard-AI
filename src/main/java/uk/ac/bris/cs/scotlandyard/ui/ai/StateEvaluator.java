@@ -16,7 +16,7 @@ public class StateEvaluator {
     }
 
     // TODO: make it take into account things like mobility and distance from prev position penalty
-    public int evaluateNode(Node node) {
+    public int evaluateNodeCatch(Node node) {
         Board.GameState state = node.getState();
         int mrXLocation = node.getMrXLocation();
         Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(state);
@@ -27,6 +27,20 @@ public class StateEvaluator {
         int minDistance = detectiveDistances.values().stream().mapToInt(Integer::intValue).min().orElse(0);
         int sumDistance = detectiveDistances.values().stream().mapToInt(Integer::intValue).sum();
         return (minDistance * CLOSEST_MULTIPLIER) + sumDistance;
+    }
+
+    public int evaluateNodeSpread(Node node) {
+        Board.GameState state = node.getState();
+        Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(state);
+        int score = 0;
+
+        for (int from : detectiveLocations) {
+            for (int to : detectiveLocations) {
+                score += distanceMap.get(from).getOrDefault(to, Integer.MAX_VALUE);
+            }
+        }
+
+        return score;
     }
 
     public Map<Integer, Integer> getDistancesToDetectives(int mrXLocation, Set<Integer> detectiveLocations) {
@@ -53,8 +67,21 @@ public class StateEvaluator {
         return closest; // higher = better
     }
 
-    public int heuristicDetectives(int newDetectiveLocation, int mrXLocation) {
+    public int catchHeuristicDetectives(int newDetectiveLocation, int mrXLocation) {
         int dist = distanceMap.get(newDetectiveLocation).getOrDefault(mrXLocation, Integer.MAX_VALUE);
-        return -dist; // smaller distance = higher priority
+        return -dist;
+    }
+
+    public int spreadHeuristicDetectives(int oldDetectiveLocation, int newDetectiveLocation, Set<Integer> detectiveLocations) {
+        Map<Integer, Integer> distances = distanceMap.get(newDetectiveLocation);
+        distances.remove(oldDetectiveLocation);
+        int minDistance = Integer.MAX_VALUE;
+
+        for (int detective : detectiveLocations) {
+            int dist = distances.getOrDefault(detective, Integer.MAX_VALUE);
+            minDistance = Math.min(minDistance, dist);
+        }
+
+        return minDistance;
     }
 }

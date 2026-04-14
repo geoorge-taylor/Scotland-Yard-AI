@@ -9,6 +9,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class StateUtils {
+    private static final int NO_MRX_LOCATION = -1;
 
     public static boolean isMrXTurn(Board board) {
         return board.getAvailableMoves().stream()
@@ -36,7 +37,7 @@ public class StateUtils {
                 .map(LogEntry::location)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .findFirst().orElse(101);
+                .findFirst().orElse(NO_MRX_LOCATION);
     }
 
     public static int getActualMrXLocation(Board board) {
@@ -50,6 +51,13 @@ public class StateUtils {
         if (move instanceof Move.SingleMove singeMove) return singeMove.destination;
         if (move instanceof Move.DoubleMove doubleMove) return doubleMove.destination2;
         throw new IllegalStateException("Unknown move type");
+    }
+
+    public static int getMoveSource(Move move) {
+        if (move instanceof Move.SingleMove singeMove) {
+            return singeMove.source();
+        }
+        return 0;
     }
 
     public static ImmutableMap<ScotlandYard.Ticket, Integer> getTickets(Board board, Piece piece) {

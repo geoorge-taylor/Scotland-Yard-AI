@@ -32,6 +32,6 @@ public class MyAi implements Ai {
 
 		return StateUtils.isMrXTurn(board)
 				? search.pickBestMrXMove(bestMove, root, timeoutPair)
-				: board.getAvailableMoves().asList().get(0);
+				: search.pickBestDetectiveMove(bestMove, root, timeoutPair);
 	}
 }
