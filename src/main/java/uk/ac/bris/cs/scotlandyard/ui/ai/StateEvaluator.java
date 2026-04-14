@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 public class StateEvaluator {
     public static final int CLOSEST_MULTIPLIER = 100;
-    private Map<Integer, Map<Integer, Integer>> distanceMap;
+    private final Map<Integer, Map<Integer, Integer>> distanceMap;
 
     public StateEvaluator(Map<Integer, Map<Integer, Integer>> distanceMap) {
         this.distanceMap = distanceMap;
@@ -21,6 +21,7 @@ public class StateEvaluator {
         int mrXLocation = node.getMrXLocation();
         Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(state);
 
+        System.out.println("Evaluating a node with mrX position at: " + node.getMrXLocation());
         // if mrX node, then score would be based on how FAR mrX is away from the detectives (i.e further away = better)
         // If detective node, then score would be based on how CLOSE detectives are away from mrX LAST KNOWN location
         Map<Integer, Integer> detectiveDistances = getDistancesToDetectives(mrXLocation, detectiveLocations);

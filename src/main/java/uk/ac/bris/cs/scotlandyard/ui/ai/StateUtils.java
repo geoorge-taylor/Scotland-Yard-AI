@@ -3,13 +3,14 @@ package uk.ac.bris.cs.scotlandyard.ui.ai;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.ietf.jgss.GSSManager;
 import uk.ac.bris.cs.scotlandyard.model.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class StateUtils {
-    private static final int NO_MRX_LOCATION = -1;
+    private static final int DEFAULT_MRX_LOCATION = 101;
 
     public static boolean isMrXTurn(Board board) {
         return board.getAvailableMoves().stream()
@@ -37,7 +38,7 @@ public class StateUtils {
                 .map(LogEntry::location)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .findFirst().orElse(NO_MRX_LOCATION);
+                .findFirst().orElse(DEFAULT_MRX_LOCATION);
     }
 
     public static int getActualMrXLocation(Board board) {
@@ -45,6 +46,11 @@ public class StateUtils {
         if (board.getAvailableMoves().isEmpty()) return 101;
         else return board.getAvailableMoves().stream()
                 .findFirst().orElseThrow().source();
+    }
+
+    public static boolean hasMrXRevealedLocation(Board board) {
+        if (isMrXTurn(board)) throw new IllegalStateException("Is MrX Turn!");
+        return board.getMrXTravelLog().isEmpty(); // true if not revealed
     }
 
     public static int getMoveDestination(Move move) {

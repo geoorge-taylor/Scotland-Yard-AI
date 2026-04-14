@@ -1,5 +1,6 @@
 package uk.ac.bris.cs.scotlandyard.ui.ai;
 
+import com.google.common.collect.ImmutableSet;
 import io.atlassian.fugue.Pair;
 import uk.ac.bris.cs.scotlandyard.model.Board;
 import uk.ac.bris.cs.scotlandyard.model.Move;
@@ -11,9 +12,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class SearchEngine {
-    private static final int TREE_DEPTH = 6;
+    private static final int TREE_DEPTH = 5;
     private static final int MOVE_LIMIT = 10;
-    private static final int NO_MRX_LOCATION = -1;
     private final StateEvaluator evaluator;
 
     public SearchEngine(StateEvaluator evaluator) {
@@ -22,16 +22,11 @@ public class SearchEngine {
 
     private int minimax(Node node, int depth, int alpha, int beta) {
         if (depth == 0 || node.isTerminal()) {
-            if (StateUtils.isMrXTurn(node.getState())) {
-                return evaluator.evaluateNodeCatch(node);
+            if (!StateUtils.isMrXTurn(node.getState())
+                    && StateUtils.hasMrXRevealedLocation(node.getState())) {
+                return evaluator.evaluateNodeSpread(node);
             } else {
-                if (StateUtils.getLastKnownMrXLocation(node.getState()) == NO_MRX_LOCATION) {
-                    // evaluate based on how spread out detectives are
-                    return evaluator.evaluateNodeSpread(node);
-                } else {
-                    // evaluate normally based on closest distance to mrX
-                    return evaluator.evaluateNodeCatch(node);
-                }
+                return evaluator.evaluateNodeCatch(node);
             }
         }
 
@@ -56,7 +51,7 @@ public class SearchEngine {
     private List<Move> sortTopMovesDetectives(Node node) {
         List<Move> moves = new ArrayList<>(node.getState().getAvailableMoves());
 
-        if (StateUtils.getLastKnownMrXLocation(node.getState()) == NO_MRX_LOCATION) {
+        if (!StateUtils.hasMrXRevealedLocation(node.getState())) {
             Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(node.getState());
             moves.sort((a, b) -> {
                 int scoreA = evaluator.spreadHeuristicDetectives(StateUtils.getMoveSource(a), StateUtils.getMoveDestination(a), detectiveLocations);
@@ -111,13 +106,13 @@ public class SearchEngine {
         return minEval;
     }
 
-    public Move pickBestMrXMove(Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
+    public Move pickBestMrXMove(ImmutableSet<Move> availableMoves, Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
         int alpha = Integer.MIN_VALUE;
         int beta = Integer.MAX_VALUE;
         int bestScore = Integer.MIN_VALUE;
         Move bestMove = defaultMove;
 
-        for (Move move : rootNode.getState().getAvailableMoves()) {
+        for (Move move : availableMoves) {
             Node child = new Node(rootNode.getState().advance(move));
             child.setMrXLocation(StateUtils.getMoveDestination(move));
             int score = minimax(child, TREE_DEPTH - 1, alpha, beta);
@@ -133,14 +128,15 @@ public class SearchEngine {
         return bestMove;
     }
 
-    public Move pickBestDetectiveMove(Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
+    public Move pickBestDetectiveMove(ImmutableSet<Move> availableMoves, Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
         // When mrX location is not revealed yet, spread detectives out as much as possible, else head towards mrX last known location
         int alpha = Integer.MIN_VALUE;
         int beta = Integer.MAX_VALUE;
         int bestScore = Integer.MAX_VALUE;
         Move bestMove = defaultMove;
 
-        for (Move move : rootNode.getState().getAvailableMoves()) {
+        for (Move move : availableMoves) {
+            System.out.println("One possible move for the detectives is: ");
             Node child = new Node(rootNode.getState().advance(move));
             child.setMrXLocation(rootNode.getMrXLocation());
             int score = minimax(child, TREE_DEPTH - 1, alpha, beta);
