@@ -24,14 +24,14 @@ public class SearchEngine {
         if (depth == 0 || node.isTerminal()) {
             if (StateUtils.isMrXTurn(node.getState())) {
                 return evaluator.evaluateNodeCatch(node);
-            }
-
-            if (StateUtils.getLastKnownMrXLocation(node.getState()) == NO_MRX_LOCATION) {
-                // evaluate based on how spread out detectives are
-                return evaluator.evaluateNodeSpread(node);
             } else {
-                // evaluate normally based on closest distance to mrX
-                return evaluator.evaluateNodeCatch(node);
+                if (StateUtils.getLastKnownMrXLocation(node.getState()) == NO_MRX_LOCATION) {
+                    // evaluate based on how spread out detectives are
+                    return evaluator.evaluateNodeSpread(node);
+                } else {
+                    // evaluate normally based on closest distance to mrX
+                    return evaluator.evaluateNodeCatch(node);
+                }
             }
         }
 
