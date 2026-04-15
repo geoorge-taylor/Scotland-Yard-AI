@@ -14,10 +14,16 @@ import java.util.concurrent.TimeUnit;
 public class MyAi implements Ai {
 	@Nonnull @Override public String name() { return "MAGIC AI"; }
 	List<Move> previousMoves = new ArrayList<>();
+	private Map<Integer, Map<Integer, Integer>> distanceMap;
 	Player initialMrX;
 	ImmutableList<Player> initialDetectives;
 
 	@Nonnull @Override public Move pickMove(@Nonnull Board board, Pair<Long, TimeUnit> timeoutPair) {
+
+		// check if we need to build the distance map
+		if (distanceMap == null) {
+			distanceMap = StateUtils.buildDistanceMap(board);
+		}
 
 		var moves = board.getAvailableMoves().asList();
 		Move bestMove = moves.get(new Random().nextInt(moves.size()));
@@ -32,12 +38,8 @@ public class MyAi implements Ai {
 		Board.GameState state = new MyGameStateFactory().build(board.getSetup(), initialMrX, initialDetectives);
 
 		for (Move previousMove : previousMoves) {
-			System.out.println("Apply previous move: " + previousMove);
 			state = state.advance(previousMove);
 		}
-
-		// Pre compute all BFS distances in the game
-		var distanceMap = StateUtils.buildDistanceMap(board);
 
 		// get the location of mrX -- either actual location or last known one
 		int mrXLocation = StateUtils.isMrXTurn(state)
@@ -55,6 +57,7 @@ public class MyAi implements Ai {
 				: search.pickBestDetectiveMove(board.getAvailableMoves(), bestMove, root, timeoutPair);
 
 		previousMoves.add(pickedMove);
+		System.out.println(search.nodeCount);
 		return pickedMove;
 	}
 }

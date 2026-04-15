@@ -21,7 +21,6 @@ public class StateEvaluator {
         int mrXLocation = node.getMrXLocation();
         Set<Integer> detectiveLocations = StateUtils.getDetectiveLocations(state);
 
-        System.out.println("Evaluating a node with mrX position at: " + node.getMrXLocation());
         // if mrX node, then score would be based on how FAR mrX is away from the detectives (i.e further away = better)
         // If detective node, then score would be based on how CLOSE detectives are away from mrX LAST KNOWN location
         Map<Integer, Integer> detectiveDistances = getDistancesToDetectives(mrXLocation, detectiveLocations);
@@ -56,7 +55,7 @@ public class StateEvaluator {
         return result;
     }
 
-    public int heuristicMrX(int newMrXLocation, Set<Integer> detectiveLocations) {
+    public int catchHeuristicMrX(int newMrXLocation, Set<Integer> detectiveLocations) {
         Map<Integer, Integer> distances = distanceMap.get(newMrXLocation);
         int closest = Integer.MAX_VALUE;
 
@@ -69,16 +68,16 @@ public class StateEvaluator {
     }
 
     public int catchHeuristicDetectives(int newDetectiveLocation, int mrXLocation) {
-        int dist = distanceMap.get(newDetectiveLocation).getOrDefault(mrXLocation, Integer.MAX_VALUE);
-        return -dist;
+        // changed to not be negative
+        return distanceMap.get(newDetectiveLocation).getOrDefault(mrXLocation, Integer.MAX_VALUE);
     }
 
     public int spreadHeuristicDetectives(int oldDetectiveLocation, int newDetectiveLocation, Set<Integer> detectiveLocations) {
         Map<Integer, Integer> distances = distanceMap.get(newDetectiveLocation);
-        distances.remove(oldDetectiveLocation);
         int minDistance = Integer.MAX_VALUE;
 
         for (int detective : detectiveLocations) {
+            if (detective == oldDetectiveLocation) continue;
             int dist = distances.getOrDefault(detective, Integer.MAX_VALUE);
             minDistance = Math.min(minDistance, dist);
         }
