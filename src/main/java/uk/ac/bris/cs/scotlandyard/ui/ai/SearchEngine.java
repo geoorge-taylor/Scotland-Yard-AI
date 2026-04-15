@@ -36,7 +36,11 @@ public class SearchEngine {
         );
     }
 
-    private int minimax(Node node, int depth, int alpha, int beta) {
+    private int minimax(Node node, int depth, int alpha, int beta, long deadline) {
+        if (System.currentTimeMillis() > deadline) {
+            return evaluator.evaluateNodeCatch(node);
+        }
+
         StateKey key = createKey(node);
 
         if (transpositionTable.containsKey(key)) {
@@ -57,8 +61,8 @@ public class SearchEngine {
 
         // 3. Store the result in the table before returning
         int resultScore = StateUtils.isMrXTurn(node.getState())
-                ? maximiseMrX(node, depth, alpha, beta)
-                : minimiseDetectives(node, depth, alpha, beta);
+                ? maximiseMrX(node, depth, alpha, beta, deadline)
+                : minimiseDetectives(node, depth, alpha, beta, deadline);
 
         transpositionTable.put(key, new TableEntry(resultScore, depth));
         return resultScore;
@@ -91,7 +95,7 @@ public class SearchEngine {
             moves.sort((a, b) -> {
                 int scoreA = evaluator.spreadHeuristicDetectives(StateUtils.getMoveSource(a), StateUtils.getMoveDestination(a), detectiveLocations);
                 int scoreB = evaluator.spreadHeuristicDetectives(StateUtils.getMoveSource(b), StateUtils.getMoveDestination(b), detectiveLocations);
-                return Integer.compare(scoreA, scoreB); // higher spread first
+                return Integer.compare(scoreB, scoreA); // higher spread first
             });
         } else {
             moves.sort((a, b) -> {
@@ -111,16 +115,17 @@ public class SearchEngine {
     }
 
 
-    private int maximiseMrX(Node node, int depth, int alpha, int beta) {
+    private int maximiseMrX(Node node, int depth, int alpha, int beta, long deadline) {
         int maxEval = Integer.MIN_VALUE;
 
         for (Move move : sortTopMovesMrX(node, depth)) {
+            if (System.currentTimeMillis() > deadline) break;
             Board.GameState childState = node.getState().advance(move);
             Node child = new Node(childState);
             nodeCount++;
             child.setMrXLocation(StateUtils.getMoveDestination(move));
 
-            int eval = minimax(child, depth - 1, alpha, beta);
+            int eval = minimax(child, depth - 1, alpha, beta, deadline);
             maxEval = Math.max(maxEval, eval);
             alpha = Math.max(alpha, eval);
             if (beta <= alpha) {
@@ -133,16 +138,17 @@ public class SearchEngine {
         return maxEval;
     }
 
-    private int minimiseDetectives(Node node, int depth, int alpha, int beta) {
+    private int minimiseDetectives(Node node, int depth, int alpha, int beta, long deadline) {
         int minEval = Integer.MAX_VALUE;
 
         for (Move move : sortTopMovesDetectives(node, depth)) {
+            if (System.currentTimeMillis() > deadline) break;
             Board.GameState childState = node.getState().advance(move);
             Node child = new Node(childState);
             nodeCount++;
             child.setMrXLocation(node.getMrXLocation());
 
-            int eval = minimax(child, depth - 1, alpha, beta);
+            int eval = minimax(child, depth - 1, alpha, beta, deadline);
             minEval = Math.min(minEval, eval);
             beta = Math.min(beta, eval);
             if (beta <= alpha) {
@@ -155,49 +161,82 @@ public class SearchEngine {
     }
 
     public Move pickBestMrXMove(ImmutableSet<Move> availableMoves, Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
-        int alpha = Integer.MIN_VALUE;
-        int beta = Integer.MAX_VALUE;
-        int bestScore = Integer.MIN_VALUE;
+
+        transpositionTable.clear();
+        killerMovesMrX.clear();
+        killerMovesDetectives.clear();
+
         Move bestMove = defaultMove;
+        long startTime = System.currentTimeMillis();
+        long durationMillis = timeoutPair.right().toMillis(timeoutPair.left());
+        long deadline = startTime + durationMillis - 500;
 
-        for (Move move : availableMoves) {
-            Node child = new Node(rootNode.getState().advance(move));
-            nodeCount++;
-            child.setMrXLocation(StateUtils.getMoveDestination(move));
-            int score = minimax(child, TREE_DEPTH - 1, alpha, beta);
+        for (int currentDepth = 1; currentDepth <= TREE_DEPTH; currentDepth++) {
+            Move bestMoveAtThisDepth = null;
+            int bestScoreAtThisDepth = Integer.MIN_VALUE;
+            int alpha = Integer.MIN_VALUE;
+            int beta = Integer.MAX_VALUE;
 
-            if (score > bestScore) {
-                bestMove = move;
-                bestScore = score;
+
+            for (Move move : availableMoves) {
+                if (System.currentTimeMillis() > deadline) break;
+
+                Node child = new Node(rootNode.getState().advance(move));
+                child.setMrXLocation(StateUtils.getMoveDestination(move));
+
+                int score = minimax(child, currentDepth - 1, alpha, beta, deadline);
+
+                if (score > bestScoreAtThisDepth) {
+                    bestScoreAtThisDepth = score;
+                    bestMoveAtThisDepth = move;
+                }
+                alpha = Math.max(alpha, bestScoreAtThisDepth);
             }
 
-            alpha = Math.max(alpha, bestScore);
-        }
 
+            if (System.currentTimeMillis() <= deadline && bestMoveAtThisDepth != null) {
+                bestMove = bestMoveAtThisDepth;
+            } else {
+                break;
+            }
+        }
         return bestMove;
     }
 
     public Move pickBestDetectiveMove(ImmutableSet<Move> availableMoves, Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
-        // When mrX location is not revealed yet, spread detectives out as much as possible, else head towards mrX last known location
-        int alpha = Integer.MIN_VALUE;
-        int beta = Integer.MAX_VALUE;
-        int bestScore = Integer.MAX_VALUE;
+
         Move bestMove = defaultMove;
 
-        for (Move move : availableMoves) {
-            Node child = new Node(rootNode.getState().advance(move));
-            nodeCount++;
-            child.setMrXLocation(rootNode.getMrXLocation());
-            int score = minimax(child, TREE_DEPTH - 1, alpha, beta);
+        long startTime = System.currentTimeMillis();
+        long durationMillis = timeoutPair.right().toMillis(timeoutPair.left());
+        long deadline = startTime + durationMillis - 500;
 
-            if (score < bestScore) {
-                bestScore = score;
-                bestMove = move;
+        for (int currentDepth = 1; currentDepth <= TREE_DEPTH; currentDepth++) {
+            Move bestMoveAtThisDepth = null;
+            int bestScoreAtThisDepth = Integer.MAX_VALUE;
+            int alpha = Integer.MIN_VALUE;
+            int beta = Integer.MAX_VALUE;
+
+            for (Move move : availableMoves) {
+                if (System.currentTimeMillis() > deadline) break;
+                Node child = new Node(rootNode.getState().advance(move));
+                nodeCount++;
+                child.setMrXLocation(rootNode.getMrXLocation());
+                int score = minimax(child, currentDepth - 1, alpha, beta, deadline);
+
+                if (score < bestScoreAtThisDepth) {
+                    bestScoreAtThisDepth = score;
+                    bestMoveAtThisDepth = move;
+                }
+
+                beta = Math.min(beta, bestScoreAtThisDepth);
             }
-
-            beta = Math.min(beta, bestScore);
+            if (System.currentTimeMillis() <= deadline && bestMoveAtThisDepth != null) {
+                bestMove = bestMoveAtThisDepth;
+            } else {
+                break;
+            }
         }
-
         return bestMove;
     }
 }
