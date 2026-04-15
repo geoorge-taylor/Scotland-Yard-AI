@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class SearchEngine {
-    private static final int TREE_DEPTH = 5;
+    private static final int TREE_DEPTH = 7;
     private static final int MOVE_LIMIT = 20;
     public int nodeCount = 0;
     private final StateEvaluator evaluator;
@@ -161,11 +161,6 @@ public class SearchEngine {
     }
 
     public Move pickBestMrXMove(ImmutableSet<Move> availableMoves, Move defaultMove, Node rootNode, Pair<Long, TimeUnit> timeoutPair) {
-
-        transpositionTable.clear();
-        killerMovesMrX.clear();
-        killerMovesDetectives.clear();
-
         Move bestMove = defaultMove;
         long startTime = System.currentTimeMillis();
         long durationMillis = timeoutPair.right().toMillis(timeoutPair.left());
@@ -177,6 +172,7 @@ public class SearchEngine {
             int alpha = Integer.MIN_VALUE;
             int beta = Integer.MAX_VALUE;
 
+            System.out.println("Reached depth for mrX move: " + currentDepth);
 
             for (Move move : availableMoves) {
                 if (System.currentTimeMillis() > deadline) break;
@@ -216,6 +212,8 @@ public class SearchEngine {
             int bestScoreAtThisDepth = Integer.MAX_VALUE;
             int alpha = Integer.MIN_VALUE;
             int beta = Integer.MAX_VALUE;
+
+            System.out.println("Reached depth for detective move: " + currentDepth);
 
             for (Move move : availableMoves) {
                 if (System.currentTimeMillis() > deadline) break;

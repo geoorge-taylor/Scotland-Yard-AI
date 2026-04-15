@@ -33,17 +33,18 @@ public class StateUtils {
     }
 
     public static int getLastKnownMrXLocation(Board board) {
-//        if (isMrXTurn(board)) throw new IllegalStateException("Is MrX Turn!");
-//        return board.getMrXTravelLog().stream()
-//                .map(LogEntry::location)
-//                .filter(Optional::isPresent)
-//                .map(Optional::get)
-//                .findFirst().orElse(DEFAULT_MRX_LOCATION);
-        List<LogEntry> log = board.getMrXTravelLog();
-        for (int i = log.size() - 1; i >= 0; i--) {
-            if (log.get(i).location().isPresent()) return log.get(i).location().get();
-        }
-        return DEFAULT_MRX_LOCATION;
+        if (isMrXTurn(board)) throw new IllegalStateException("Is MrX Turn!");
+        // TODO: Why on earth does this work? Its always picking the first last known move?
+        return board.getMrXTravelLog().stream()
+                .map(LogEntry::location)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst().orElse(DEFAULT_MRX_LOCATION);
+//        List<LogEntry> log = board.getMrXTravelLog();
+//        for (int i = log.size() - 1; i >= 0; i--) {
+//            if (log.get(i).location().isPresent()) return log.get(i).location().get();
+//        }
+//        return DEFAULT_MRX_LOCATION;
     }
 
     public static int getActualMrXLocation(Board board) {

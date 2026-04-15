@@ -19,10 +19,10 @@ public class MyAi implements Ai {
 	ImmutableList<Player> initialDetectives;
 
 	@Nonnull @Override public Move pickMove(@Nonnull Board board, Pair<Long, TimeUnit> timeoutPair) {
-		if (board.getMrXTravelLog().isEmpty() && board.getAvailableMoves().stream().allMatch(m -> m.commencedBy().isMrX())) {
+		if (board.getMrXTravelLog().isEmpty() && StateUtils.isMrXTurn(board)) {
 			previousMoves.clear();
-			initialMrX = StateUtils.extractMrXPlayer(board);
-			initialDetectives = StateUtils.extractDetectivePlayers(board);
+//			initialMrX = StateUtils.extractMrXPlayer(board);
+//			initialDetectives = StateUtils.extractDetectivePlayers(board);
 		}
 		// check if we need to build the distance map
 		if (distanceMap == null) {
@@ -51,7 +51,7 @@ public class MyAi implements Ai {
 				: StateUtils.getLastKnownMrXLocation(state);
 
 
-		if (StateUtils.isMrXTurn(board)) System.out.println("The last known mrX location was this: " + mrXLocation);
+		if (!StateUtils.isMrXTurn(board)) System.out.println("Detective heading to this last known location of mRx: " + mrXLocation);
 
 		Node root = new Node(state);
 		root.setMrXLocation(mrXLocation);
